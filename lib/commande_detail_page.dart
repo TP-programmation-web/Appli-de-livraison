@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import '../models/commande.dart';
 import '../services/backend_service.dart';
@@ -659,7 +660,7 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                   ...widget.commande.articles.map((article) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -667,15 +668,32 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              article.categorieIcon,
-                              style: const TextStyle(fontSize: 24),
+                          // Photo de l'article
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: CachedNetworkImage(
+                              imageUrl: article.photo,
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                width: 70,
+                                height: 70,
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                width: 70,
+                                height: 70,
+                                color: Colors.grey[100],
+                                child: Text(
+                                  article.categorieIcon,
+                                  style: const TextStyle(fontSize: 32),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -709,18 +727,36 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                                     ),
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${article.prix.toStringAsFixed(0)} FCFA',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text(
-                                'x${article.quantite}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'x${article.quantite}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
@@ -788,7 +824,7 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                     ),
                   ),
                   Text(
-                    '${widget.commande.total.toStringAsFixed(2)} €',
+                    '${widget.commande.total.toStringAsFixed(0)} FCFA',
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,

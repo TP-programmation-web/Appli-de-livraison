@@ -6,6 +6,7 @@ class Article {
   final CategorieArticle categorie;
   final int quantite;
   final double prix;
+  final String photo; // URL de la photo
 
   Article({
     required this.id,
@@ -13,6 +14,7 @@ class Article {
     required this.categorie,
     required this.quantite,
     required this.prix,
+    required this.photo,
   });
 
   String get categorieLabel {
@@ -31,7 +33,7 @@ class Article {
   String get categorieIcon {
     switch (categorie) {
       case CategorieArticle.materiel:
-        return '🏆';
+        return '⚽';
       case CategorieArticle.homme:
         return '👔';
       case CategorieArticle.femme:
@@ -48,6 +50,7 @@ class Article {
       categorie: CategorieArticle.values[json['categorie']],
       quantite: json['quantite'],
       prix: json['prix'].toDouble(),
+      photo: json['photo'],
     );
   }
 
@@ -58,6 +61,7 @@ class Article {
       'categorie': categorie.index,
       'quantite': quantite,
       'prix': prix,
+      'photo': photo,
     };
   }
 }

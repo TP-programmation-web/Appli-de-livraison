@@ -1,164 +1,180 @@
-import '../../models/livreur.dart';
-import '../../models/commande.dart';
-import '../../models/article.dart';
+import '../models/livreur.dart';
+import '../models/commande.dart';
+import '../models/article.dart';
 
 class BackendService {
   static final BackendService _instance = BackendService._internal();
   factory BackendService() => _instance;
   BackendService._internal();
 
-  // Base de données simulée
+  // Base de données simulée - Contexte Camerounais
   final Map<String, Livreur> _livreurs = {
-    'Clément Talla': Livreur(
+    'jeanpaul.mvondo@allsports.cm': Livreur(
       id: 'L001',
-      nom: 'Talla',
-      prenom: 'Clement',
-      email: 'tallaclement@gmail.com',
-      telephone: '+237 689087654',
-      vehicule: 'Voiture',
+      nom: 'Mvondo',
+      prenom: 'Jean-Paul',
+      email: 'jeanpaul.mvondo@allsports.cm',
+      telephone: '+237 6 77 88 99 00',
+      vehicule: 'Moto',
       note: 4.8,
-      totalLivraisons: 20,
+      totalLivraisons: 342,
     ),
   };
 
   final Map<String, String> _passwords = {
-    'Clément Talla': 'Tallaclement',
+    'jeanpaul.mvondo@allsports.cm': 'password123',
   };
 
   final List<Commande> _commandes = [
     Commande(
-      id: 'C001',
-      clientNom: 'Essono Flora',
-      clientTelephone: '+237 652439087',
-      adresse: 'Carrefour Nsam',
-      codePostal: '1890',
+      id: 'CMD-YDE-001',
+      clientNom: 'Marie Ngo Biyong',
+      clientTelephone: '+237 6 55 44 33 22',
+      adresse: 'Avenue Kennedy, Quartier Bastos',
+      codePostal: '',
       ville: 'Yaoundé',
       articles: [
         Article(
           id: 'ART001',
-          nom: 'Ballon Football Pro',
-          categorie: CategorieArticle.materiel,
+          nom: 'Maillot des Lions Indomptables',
+          categorie: CategorieArticle.homme,
           quantite: 2,
-          prix: 6000,
+          prix: 25000,
+          photo: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&q=80',
         ),
         Article(
           id: 'ART002',
-          nom: 'Chaussures Running Nike',
-          categorie: CategorieArticle.homme,
+          nom: 'Ballon de Football Nike',
+          categorie: CategorieArticle.materiel,
           quantite: 1,
-          prix: 10000,
+          prix: 15000,
+          photo: 'https://images.unsplash.com/photo-1614632537423-1e6c2e7e0aab?w=800&q=80',
         ),
       ],
       statut: StatutCommande.enAttente,
       priorite: Priorite.prioritaire,
       dateCommande: DateTime.now(),
       heureLivraison: '14:00',
-      total: 16000,
+      total: 65000,
     ),
     Commande(
-      id: 'C002',
-      clientNom: 'Owona Matteo',
-      clientTelephone: '+237 699087653',
-      adresse: 'Melen Polytechnique',
-      codePostal: '1236',
-      ville: 'Yaounde',
+      id: 'CMD-DLA-002',
+      clientNom: 'Paul Ekambi Tchami',
+      clientTelephone: '+237 6 99 88 77 66',
+      adresse: 'Rue de la Réunification, Akwa',
+      codePostal: '',
+      ville: 'Douala',
       articles: [
         Article(
           id: 'ART003',
-          nom: 'Ballon Football Pro',
-          categorie: CategorieArticle.materiel,
+          nom: 'Chaussures de Football Adidas',
+          categorie: CategorieArticle.homme,
           quantite: 1,
-          prix: 6000,
+          prix: 45000,
+          photo: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800&q=80',
         ),
         Article(
           id: 'ART004',
-          nom: 'Chaussures Foot Puma',
+          nom: 'Short de Sport Nike',
           categorie: CategorieArticle.homme,
-          quantite: 1,
-          prix: 15000,
+          quantite: 2,
+          prix: 8000,
+          photo: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=800&q=80',
         ),
       ],
       statut: StatutCommande.enCours,
       priorite: Priorite.urgent,
       dateCommande: DateTime.now(),
       heureLivraison: '15:30',
-      total: 21000,
+      total: 61000,
     ),
     Commande(
-      id: 'AS-2024-003',
-      clientNom: 'Sophie Petit',
-      clientTelephone: '+33 6 55 66 77 88',
-      adresse: '8 Rue du Commerce',
-      codePostal: '69002',
-      ville: 'Lyon',
+      id: 'CMD-YDE-003',
+      clientNom: 'Sophie Mballa Etoundi',
+      clientTelephone: '+237 6 70 60 50 40',
+      adresse: 'Carrefour Nlongkak, Derrière Total',
+      codePostal: '',
+      ville: 'Yaoundé',
       articles: [
         Article(
           id: 'ART005',
-          nom: 'Raquette Tennis Wilson',
-          categorie: CategorieArticle.materiel,
+          nom: 'Ensemble de Sport Femme',
+          categorie: CategorieArticle.femme,
           quantite: 1,
-          prix: 79.99,
+          prix: 18000,
+          photo: 'https://images.unsplash.com/photo-1518310383802-640c2de311b2?w=800&q=80',
         ),
         Article(
           id: 'ART006',
-          nom: 'Tenue Tennis Femme',
+          nom: 'Basket Nike Air',
           categorie: CategorieArticle.femme,
-          quantite: 2,
-          prix: 22.50,
+          quantite: 1,
+          prix: 38000,
+          photo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80',
         ),
       ],
       statut: StatutCommande.enAttente,
       priorite: Priorite.normale,
       dateCommande: DateTime.now(),
       heureLivraison: '16:00',
-      total: 124.99,
+      total: 56000,
     ),
   ];
 
   final List<Commande> _historique = [
     Commande(
-      id: 'AS-2024-004',
-      clientNom: 'Lucas Moreau',
-      clientTelephone: '+33 6 98 76 54 32',
-      adresse: 'Place Vendôme',
-      codePostal: '75001',
-      ville: 'Paris',
+      id: 'CMD-YDE-004',
+      clientNom: 'Michel Onana Bekolo',
+      clientTelephone: '+237 6 88 77 66 55',
+      adresse: 'Melen, Face Pharmacie du Carrefour',
+      codePostal: '',
+      ville: 'Yaoundé',
       articles: [
         Article(
           id: 'ART007',
-          nom: 'Kit Basketball',
-          categorie: CategorieArticle.materiel,
+          nom: 'Survêtement Complet Puma',
+          categorie: CategorieArticle.homme,
           quantite: 1,
-          prix: 179.00,
+          prix: 35000,
+          photo: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80',
         ),
       ],
       statut: StatutCommande.livree,
       priorite: Priorite.normale,
       dateCommande: DateTime(2025, 1, 15),
       heureLivraison: '14:30',
-      total: 179.00,
+      total: 35000,
     ),
     Commande(
-      id: 'AS-2024-005',
-      clientNom: 'Emma Durand',
-      clientTelephone: '+33 6 87 65 43 21',
-      adresse: 'Rue de Rivoli',
-      codePostal: '75004',
-      ville: 'Paris',
+      id: 'CMD-DLA-005',
+      clientNom: 'Élise Ndongo Mbarga',
+      clientTelephone: '+237 6 55 44 33 22',
+      adresse: 'Bonapriso, Rue Joss',
+      codePostal: '',
+      ville: 'Douala',
       articles: [
         Article(
           id: 'ART008',
-          nom: 'Vélo VTT Pro',
+          nom: 'Sac de Sport Adidas',
           categorie: CategorieArticle.materiel,
           quantite: 1,
-          prix: 89.99,
+          prix: 22000,
+          photo: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&q=80',
+        ),
+        Article(
+          id: 'ART009',
+          nom: 'Gourde Isotherme 1L',
+          categorie: CategorieArticle.materiel,
+          quantite: 2,
+          prix: 5000,
+          photo: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&q=80',
         ),
       ],
       statut: StatutCommande.livree,
       priorite: Priorite.normale,
       dateCommande: DateTime(2025, 1, 15),
       heureLivraison: '16:00',
-      total: 89.99,
+      total: 32000,
     ),
   ];
 
@@ -206,7 +222,7 @@ class BackendService {
     final assignees = commandes.length;
     final completees = commandes.where((c) => c.statut == StatutCommande.livree).length;
     final enAttente = commandes.where((c) => c.statut == StatutCommande.enAttente).length;
-    final gains = commandes.fold(0.0, (sum, c) => sum + c.total) / 2; // Commission 50%
+    final gains = commandes.fold(0.0, (sum, c) => sum + c.total) * 0.15; // Commission 15%
     
     return {
       'assignees': assignees,
