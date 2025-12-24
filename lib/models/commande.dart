@@ -1,8 +1,6 @@
 import 'article.dart';
 
-enum StatutCommande { enAttente, enCours, livree, urgent, echec }
-
-enum Priorite { normale, prioritaire, urgent }
+enum StatutCommande { enAttente, enCours, livree, echec }
 
 class Commande {
   final String id;
@@ -13,7 +11,6 @@ class Commande {
   final String ville;
   final List<Article> articles;
   final StatutCommande statut;
-  final Priorite priorite;
   final DateTime dateCommande;
   final String? heureLivraison;
   final double total;
@@ -27,13 +24,17 @@ class Commande {
     required this.ville,
     required this.articles,
     required this.statut,
-    required this.priorite,
     required this.dateCommande,
     this.heureLivraison,
     required this.total,
   });
 
-  String get adresseComplete => '$adresse, $codePostal $ville';
+  String get adresseComplete {
+    if (codePostal.isEmpty) {
+      return '$adresse, $ville';
+    }
+    return '$adresse, $codePostal $ville';
+  }
 
   String get statutLabel {
     switch (statut) {
@@ -42,22 +43,9 @@ class Commande {
       case StatutCommande.enCours:
         return 'En cours';
       case StatutCommande.livree:
-        return 'Livré';
-      case StatutCommande.urgent:
-        return 'Urgent';
+        return 'Livrée';
       case StatutCommande.echec:
         return 'Échec';
-    }
-  }
-
-  String get prioriteLabel {
-    switch (priorite) {
-      case Priorite.normale:
-        return '';
-      case Priorite.prioritaire:
-        return 'Prioritaire';
-      case Priorite.urgent:
-        return 'Urgent';
     }
   }
 
@@ -73,7 +61,6 @@ class Commande {
           .map((a) => Article.fromJson(a))
           .toList(),
       statut: StatutCommande.values[json['statut']],
-      priorite: Priorite.values[json['priorite']],
       dateCommande: DateTime.parse(json['dateCommande']),
       heureLivraison: json['heureLivraison'],
       total: json['total'].toDouble(),
@@ -90,7 +77,6 @@ class Commande {
       'ville': ville,
       'articles': articles.map((a) => a.toJson()).toList(),
       'statut': statut.index,
-      'priorite': priorite.index,
       'dateCommande': dateCommande.toIso8601String(),
       'heureLivraison': heureLivraison,
       'total': total,

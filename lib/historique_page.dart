@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/livreur.dart';
 import '../models/commande.dart';
-import '../services/backend_service.dart';
+import '../services/api_service.dart';
 
 class HistoriquePage extends StatefulWidget {
   final Livreur livreur;
@@ -13,10 +13,14 @@ class HistoriquePage extends StatefulWidget {
   State<HistoriquePage> createState() => _HistoriquePageState();
 }
 
-class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProviderStateMixin {
+class _HistoriquePageState extends State<HistoriquePage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ApiService _apiService = ApiService();
+  
   List<Commande> _historique = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -32,12 +36,28 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
   }
 
   Future<void> _loadHistorique() async {
-    setState(() => _isLoading = true);
-    final historique = await BackendService().getHistorique(widget.livreur.id);
     setState(() {
-      _historique = historique;
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final historique = await _apiService.getHistorique(widget.livreur.id);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _historique = historique;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
   }
 
   List<Commande> get _toutes => _historique;
@@ -55,98 +75,166 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
     final successRate = total > 0 ? (livrees / total * 100).toInt() : 100;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E5FFF),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Historique',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+      backgroundColor: Colors.white,
+      body: RefreshIndicator(
+        onRefresh: _loadHistorique,
+        child: CustomScrollView(
+          slivers: [
+            // Header avec stats
+            SliverAppBar(
+              expandedHeight: 200,
+              floating: false,
+              pinned: true,
+              backgroundColor: const Color(0xFF1E5FFF),
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF1E5FFF),
+                        Color(0xFF0D47A1),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Expanded(
-                        child: _buildStatBox(
-                          '$total',
-                          'Total',
-                          Icons.inventory_2_outlined,
+                      const Text(
+                        'Historique',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatBox(
-                          '$livrees',
-                          'Livrées',
-                          Icons.check_circle_outline,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatBox(
-                          '$successRate%',
-                          'Succès',
-                          Icons.star_outline,
-                        ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatBox(
+                              '$total',
+                              'Total',
+                              Icons.inventory_2_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildStatBox(
+                              '$livrees',
+                              'Livrées',
+                              Icons.check_circle_outline,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildStatBox(
+                              '$successRate%',
+                              'Succès',
+                              Icons.star_outline,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
-            // Content
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
+
+            // TabBar
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverTabBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  labelColor: const Color(0xFF1E5FFF),
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: const Color(0xFF1E5FFF),
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
-                ),
-                child: Column(
-                  children: [
-                    TabBar(
-                      controller: _tabController,
-                      labelColor: const Color(0xFF1E5FFF),
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: const Color(0xFF1E5FFF),
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      isScrollable: true,
-                      tabs: const [
-                        Tab(text: 'Tout'),
-                        Tab(text: 'Livrées'),
-                        Tab(text: 'Échecs'),
-                        Tab(text: 'Retours'),
-                      ],
-                    ),
-                    Expanded(
-                      child: _isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : TabBarView(
-                              controller: _tabController,
-                              children: [
-                                _buildHistoriqueList(_toutes),
-                                _buildHistoriqueList(_livrees),
-                                _buildHistoriqueList(_echecs),
-                                _buildHistoriqueList(_retours),
-                              ],
-                            ),
-                    ),
+                  isScrollable: true,
+                  tabs: const [
+                    Tab(text: 'Tout'),
+                    Tab(text: 'Livrées'),
+                    Tab(text: 'Échecs'),
+                    Tab(text: 'Retours'),
                   ],
                 ),
               ),
             ),
+
+            // Message d'erreur si présent
+            if (_errorMessage != null)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Erreur de chargement',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _errorMessage!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.red[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.red),
+                        onPressed: _loadHistorique,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Contenu
+            if (_isLoading)
+              const SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else
+              SliverFillRemaining(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildHistoriqueContent(_toutes),
+                    _buildHistoriqueContent(_livrees),
+                    _buildHistoriqueContent(_echecs),
+                    _buildHistoriqueContent(_retours),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -155,28 +243,28 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
 
   Widget _buildStatBox(String value, String label, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(height: 8),
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 24,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 10,
               color: Colors.white70,
             ),
           ),
@@ -185,7 +273,7 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
     );
   }
 
-  Widget _buildHistoriqueList(List<Commande> commandes) {
+  Widget _buildHistoriqueContent(List<Commande> commandes) {
     if (commandes.isEmpty) {
       return Center(
         child: Column(
@@ -245,6 +333,22 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E5FFF).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${commandesJour.length} commande${commandesJour.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF1E5FFF),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -356,11 +460,19 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${commande.total.toStringAsFixed(2)} €',
+                '${commande.total.toStringAsFixed(0)} FCFA',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1E5FFF),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                DateFormat('HH:mm').format(commande.dateCommande),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
                 ),
               ),
             ],
@@ -369,4 +481,32 @@ class _HistoriquePageState extends State<HistoriquePage> with SingleTickerProvid
       ),
     );
   }
+}
+
+// Delegate pour le TabBar persistant
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+
+  _SliverTabBarDelegate(this._tabBar);
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Colors.white,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) => false;
 }

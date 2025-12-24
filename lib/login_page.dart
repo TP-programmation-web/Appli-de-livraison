@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/backend_service.dart';
-import '../models/livreur.dart';
+import '../services/api_service.dart';
 import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -14,8 +13,11 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController(text: '');
   final _passwordController = TextEditingController(text: '');
   final _formKey = GlobalKey<FormState>();
+  final ApiService _apiService = ApiService();
+  
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -27,11 +29,14 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
-      final livreur = await BackendService().login(
-        _emailController.text,
+      final livreur = await _apiService.login(
+        _emailController.text.trim(),
         _passwordController.text,
       );
 
@@ -43,16 +48,25 @@ class _LoginPageState extends State<LoginPage> {
             builder: (context) => HomePage(livreur: livreur),
           ),
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email ou mot de passe incorrect'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_errorMessage ?? 'Erreur de connexion'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -161,6 +175,35 @@ class _LoginPageState extends State<LoginPage> {
                             color: Colors.grey,
                           ),
                         ),
+                        
+                        // Message d'erreur
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        
                         const SizedBox(height: 30),
                         // Email
                         const Text(
@@ -175,6 +218,7 @@ class _LoginPageState extends State<LoginPage> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: 'votre@email.com',
                             prefixIcon: const Icon(Icons.email_outlined),
@@ -213,6 +257,7 @@ class _LoginPageState extends State<LoginPage> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
+                          enabled: !_isLoading,
                           decoration: InputDecoration(
                             hintText: '••••••••',
                             prefixIcon: const Icon(Icons.lock_outline),
@@ -281,7 +326,13 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 16),
                         Center(
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: _isLoading ? null : () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Fonctionnalité à venir'),
+                                ),
+                              );
+                            },
                             child: const Text(
                               'Mot de passe oublié ?',
                               style: TextStyle(
@@ -295,6 +346,12 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
+                
+                // Informations de test (À RETIRER EN PRODUCTION)
+                if (!_isLoading) ...[
+                  const SizedBox(height: 20),
+                ],
+                const SizedBox(height: 20),
               ],
             ),
           ),

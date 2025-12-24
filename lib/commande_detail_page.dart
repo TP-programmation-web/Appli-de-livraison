@@ -4,7 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import '../models/commande.dart';
-import '../services/backend_service.dart';
+import '../services/api_service.dart';
 
 class CommandeDetailPage extends StatefulWidget {
   final Commande commande;
@@ -16,9 +16,17 @@ class CommandeDetailPage extends StatefulWidget {
 }
 
 class _CommandeDetailPageState extends State<CommandeDetailPage> {
+  late StatutCommande _currentStatut;
   bool _isUpdating = false;
   File? _photoLivraison;
   final ImagePicker _picker = ImagePicker();
+  final ApiService _apiService = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStatut = widget.commande.statut;
+  }
 
   Future<void> _prendrePhoto() async {
     try {
@@ -45,6 +53,48 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
     }
   }
 
+  Future<void> _demarrerLivraison() async {
+    setState(() => _isUpdating = true);
+
+    try {
+      final success = await _apiService.demarrerLivraison(widget.commande.id);
+
+      if (!mounted) return;
+
+      if (success) {
+        setState(() {
+          _currentStatut = StatutCommande.enCours;
+          _isUpdating = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Livraison démarrée !'),
+              ],
+            ),
+            backgroundColor: Color(0xFF4CAF50),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString().replaceFirst('Exception: ', '')}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      setState(() => _isUpdating = false);
+    }
+  }
+
   Future<void> _confirmerLivraison() async {
     if (_photoLivraison == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,111 +109,112 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
 
     setState(() => _isUpdating = true);
 
-    // Simuler l'upload de la photo et mise à jour
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final success = await _apiService.terminerLivraisonSucces(
+        widget.commande.id,
+        _photoLivraison!,
+      );
 
-    final success = await BackendService().updateStatutCommande(
-      widget.commande.id,
-      StatutCommande.livree,
-    );
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    if (success) {
-      // Afficher notification de succès
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.white,
-                  size: 60,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Livraison confirmée !',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Photo enregistrée avec succès',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.check, size: 16, color: Color(0xFF4CAF50)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Client notifié ✓',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                '⚽ 🏀 🎾',
-                style: TextStyle(fontSize: 28),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(); // Fermer dialog
-                  Navigator.of(context).pop(); // Retour à la liste
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4CAF50),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+      if (success) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4CAF50),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Colors.white,
+                    size: 60,
                   ),
                 ),
-                child: const Text(
-                  'Continuer',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                const SizedBox(height: 20),
+                const Text(
+                  'Livraison confirmée !',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  'Photo envoyée au serveur avec succès',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check, size: 16, color: Color(0xFF4CAF50)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Client notifié ✓',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  '⚽ 🏀 🎾',
+                  style: TextStyle(fontSize: 28),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    Navigator.of(context).pop(true);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 45),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continuer',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    } else {
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors de la confirmation'),
+        SnackBar(
+          content: Text('Erreur: ${e.toString().replaceFirst('Exception: ', '')}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
       setState(() => _isUpdating = false);
@@ -171,7 +222,6 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
   }
 
   Future<void> _signalerEchec() async {
-    // Demander une raison
     String? raison;
     await showDialog(
       context: context,
@@ -209,122 +259,126 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
 
     setState(() => _isUpdating = true);
 
-    final success = await BackendService().updateStatutCommande(
-      widget.commande.id,
-      StatutCommande.echec,
-    );
+    try {
+      final success = await _apiService.terminerLivraisonEchec(
+        widget.commande.id,
+        raison!,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (success) {
-      // Afficher notification d'échec
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.info_outline,
-                  color: Colors.orange,
-                  size: 60,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Échec signalé',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Raison: $raison',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.notifications_active, size: 16, color: Colors.orange),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Client et support notifiés',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                '📦 ⚠️',
-                style: TextStyle(fontSize: 28),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(); // Fermer dialog
-                  Navigator.of(context).pop(); // Retour à la liste
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 45),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+      if (success) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.info_outline,
+                    color: Colors.orange,
+                    size: 60,
                   ),
                 ),
-                child: const Text(
-                  'Continuer',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                const SizedBox(height: 20),
+                const Text(
+                  'Échec signalé',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Raison: $raison',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.notifications_active, size: 16, color: Colors.orange),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Client et support notifiés',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  '📦 ⚠️',
+                  style: TextStyle(fontSize: 28),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    Navigator.of(context).pop(true);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 45),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Continuer',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    } else {
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors du signalement'),
+        SnackBar(
+          content: Text('Erreur: ${e.toString().replaceFirst('Exception: ', '')}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
       setState(() => _isUpdating = false);
@@ -332,24 +386,128 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
   }
 
   Future<void> _callClient() async {
-    final uri = Uri.parse('tel:${widget.commande.clientTelephone}');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    final phoneNumber = widget.commande.clientTelephone.replaceAll(' ', '');
+    final uri = Uri.parse('tel:$phoneNumber');
+    
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir l\'application téléphone'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _sendSMS() async {
-    final uri = Uri.parse('sms:${widget.commande.clientTelephone}');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    final phoneNumber = widget.commande.clientTelephone.replaceAll(' ', '');
+    final uri = Uri.parse('sms:$phoneNumber');
+    
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir l\'application SMS'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _openGPS() async {
-    final address = Uri.encodeComponent(widget.commande.adresseComplete);
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$address');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final address = widget.commande.adresseComplete;
+    
+    final googleMapsUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}'
+    );
+    
+    try {
+      final canLaunch = await canLaunchUrl(googleMapsUri);
+      if (canLaunch) {
+        await launchUrl(
+          googleMapsUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir Google Maps'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur GPS: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openWhatsApp() async {
+    final phoneNumber = widget.commande.clientTelephone
+        .replaceAll(' ', '')
+        .replaceAll('+', '');
+    
+    final message = Uri.encodeComponent(
+      'Bonjour ${widget.commande.clientNom}, je suis votre livreur Allsports. Je viens livrer votre commande ${widget.commande.id}.'
+    );
+    
+    final whatsappUri = Uri.parse('https://wa.me/$phoneNumber?text=$message');
+    
+    try {
+      final canLaunch = await canLaunchUrl(whatsappUri);
+      if (canLaunch) {
+        await launchUrl(
+          whatsappUri,
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('WhatsApp n\'est pas installé sur votre téléphone'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur WhatsApp: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -381,28 +539,32 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: widget.commande.statut == StatutCommande.enCours
+                color: _currentStatut == StatutCommande.enCours
                     ? const Color(0xFF1E5FFF).withOpacity(0.1)
-                    : widget.commande.priorite == Priorite.urgent
-                        ? Colors.red.withOpacity(0.1)
-                        : Colors.grey[50],
+                    : const Color(0xFFFFA726).withOpacity(0.1),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: widget.commande.statut == StatutCommande.enCours
+                      color: _currentStatut == StatutCommande.enCours
                           ? const Color(0xFF1E5FFF)
                           : const Color(0xFFFFA726),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.circle, color: Colors.white, size: 10),
+                        Icon(
+                          _currentStatut == StatutCommande.enCours
+                              ? Icons.local_shipping
+                              : Icons.schedule,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                         const SizedBox(width: 6),
                         Text(
-                          widget.commande.statut == StatutCommande.enCours
+                          _currentStatut == StatutCommande.enCours
                               ? 'En cours'
                               : 'En attente',
                           style: const TextStyle(
@@ -413,31 +575,6 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                       ],
                     ),
                   ),
-                  if (widget.commande.priorite != Priorite.normale) ...[
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: widget.commande.priorite == Priorite.urgent
-                            ? Colors.red
-                            : Colors.orange,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.white, size: 14),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.commande.prioriteLabel,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const Spacer(),
                   Text(
                     widget.commande.heureLivraison ?? '',
@@ -519,11 +656,16 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          icon: const Icon(Icons.phone),
-                          label: const Text('Appeler'),
+                          icon: const Icon(Icons.phone, size: 20),
+                          label: const Text('Appel'),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _sendSMS,
@@ -535,25 +677,25 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          icon: const Icon(Icons.message),
+                          icon: const Icon(Icons.message, size: 20),
                           label: const Text('SMS'),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      OutlinedButton(
-                        onPressed: _openGPS,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF1E5FFF),
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                            horizontal: 16,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _openGPS,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1E5FFF),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: Color(0xFF1E5FFF)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          side: const BorderSide(color: Color(0xFF1E5FFF)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          icon: const Icon(Icons.navigation, size: 20),
+                          label: const Text('GPS'),
                         ),
-                        child: const Icon(Icons.navigation),
                       ),
                     ],
                   ),
@@ -604,26 +746,6 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _openGPS,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E5FFF),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.navigation),
-                    label: const Text(
-                      'Démarrer',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -668,7 +790,6 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                       ),
                       child: Row(
                         children: [
-                          // Photo de l'article
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: CachedNetworkImage(
@@ -769,7 +890,7 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
               ),
             ),
             const SizedBox(height: 24),
-            // Photo de confirmation si prise
+            // Photo de confirmation
             if (_photoLivraison != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -850,95 +971,102 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isUpdating ? null : _signalerEchec,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Colors.orange),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_isUpdating)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else ...[
-                        const Icon(Icons.report_problem),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Échec',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  onPressed: _isUpdating
-                      ? null
-                      : () {
-                          if (_photoLivraison == null) {
-                            _prendrePhoto();
-                          } else {
-                            _confirmerLivraison();
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_isUpdating)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      else ...[
-                        Icon(_photoLivraison == null ? Icons.camera_alt : Icons.check_circle),
-                        const SizedBox(width: 8),
-                        Text(
-                          _photoLivraison == null ? 'Photo + Livrer' : 'Confirmer',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: _buildBottomButtons(),
         ),
       ),
+    );
+  }
+
+  Widget _buildBottomButtons() {
+    if (_currentStatut == StatutCommande.enAttente) {
+      return ElevatedButton.icon(
+        onPressed: _isUpdating ? null : _demarrerLivraison,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E5FFF),
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 56),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: _isUpdating
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Icon(Icons.play_arrow, size: 28),
+        label: Text(
+          _isUpdating ? 'Démarrage...' : 'Démarrer livraison',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _isUpdating ? null : _signalerEchec,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orange,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              side: const BorderSide(color: Colors.orange, width: 2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.report_problem, size: 24),
+            label: const Text(
+              'Échec',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton.icon(
+            onPressed: _isUpdating
+                ? null
+                : () {
+                    if (_photoLivraison == null) {
+                      _prendrePhoto();
+                    } else {
+                      _confirmerLivraison();
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4CAF50),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: Icon(
+              _photoLivraison == null ? Icons.camera_alt : Icons.check_circle,
+              size: 24,
+            ),
+            label: Text(
+              _photoLivraison == null ? 'Photo + Livrer' : 'Confirmer',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

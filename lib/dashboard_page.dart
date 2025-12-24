@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/livreur.dart';
 import '../models/commande.dart';
-import '../services/backend_service.dart';
+import '../services/api_service.dart';
 import 'commande_detail_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -15,9 +15,12 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  final ApiService _apiService = ApiService();
+  
   Map<String, dynamic>? _stats;
   List<Commande> _prochaines = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -26,16 +29,45 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    
-    final stats = await BackendService().getStatistiques(widget.livreur.id);
-    final commandes = await BackendService().getCommandesAssignees(widget.livreur.id);
-    
     setState(() {
-      _stats = stats;
-      _prochaines = commandes.where((c) => c.statut == StatutCommande.enAttente).take(3).toList();
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+    
+    try {
+      final stats = await _apiService.getStatistiques(widget.livreur.id);
+      final commandes = await _apiService.getCommandesAssignees(widget.livreur.id);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _stats = stats;
+        _prochaines = commandes
+            .where((c) => c.statut == StatutCommande.enAttente)
+            .take(3)
+            .toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_errorMessage ?? 'Erreur de chargement'),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Réessayer',
+            textColor: Colors.white,
+            onPressed: _loadData,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -46,49 +78,197 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF1E5FFF),
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-            : Column(
-                children: [
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                )
+              : SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      // Header
+                      Container(
+                        color: const Color(0xFF1E5FFF),
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              formatter.format(now),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  formatter.format(now),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.circle,
+                                        color: Colors.greenAccent,
+                                        size: 12,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'En ligne',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Text(
+                                  'Bonjour, ${widget.livreur.prenom} 👋',
+                                  style: const TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            
+                            // Message d'erreur si présent
+                            if (_errorMessage != null) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.red.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            ],
+                            
+                            const SizedBox(height: 20),
+                            // Stats cards
+                            Container(
+                              padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: const Row(
+                              child: Row(
                                 children: [
-                                  Icon(
-                                    Icons.circle,
-                                    color: Colors.greenAccent,
-                                    size: 12,
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.trending_up_rounded,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              "Aujourd'hui",
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '${_stats!['assignees']} livraisons',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'En ligne',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                                  Container(
+                                    width: 1,
+                                    height: 40,
+                                    color: Colors.white.withOpacity(0.3),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.money,
+                                              color: Colors.green,
+                                              size: 20,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Gains',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '${(_stats!['gains'] ?? 0.0).toStringAsFixed(0)} FCFA',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const Text(
+                                          "Aujourd'hui",
+                                          style: TextStyle(
+                                            color: Colors.white60,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -96,231 +276,120 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        Row(
+                      ),
+                      // Content
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(30),
+                          ),
+                        ),
+                        child: Column(
                           children: [
-                            Text(
-                              'Bonjour, ${widget.livreur.prenom} 👋',
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.inventory_2_outlined,
+                                      'Assignées',
+                                      '${_stats!['assignees']}',
+                                      const Color(0xFF1E5FFF),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.check_circle_outline,
+                                      'Complétées',
+                                      '${_stats!['completees']}',
+                                      const Color(0xFF4CAF50),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.access_time_rounded,
+                                      'En attente',
+                                      '${_stats!['enAttente']}',
+                                      const Color(0xFFFFA726),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            // Prochaines livraisons
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Prochaines livraisons',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_prochaines.length} en attente',
+                                    style: const TextStyle(
+                                      color: Color(0xFF1E5FFF),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _prochaines.isEmpty
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 40),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.inventory_2_outlined,
+                                          size: 60,
+                                          color: Colors.grey[300],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Aucune livraison en attente',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          '⚽ 🏀 🎾',
+                                          style: TextStyle(fontSize: 24),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                                    itemCount: _prochaines.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildCommandeCard(_prochaines[index]);
+                                    },
+                                  ),
+                            const SizedBox(height: 20),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        // Stats cards
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.trending_up_rounded,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          "Aujourd'hui",
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '${_stats!['assignees']}/8 livraisons',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 40,
-                                color: Colors.white.withOpacity(0.3),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.euro_rounded,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Gains',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '${_stats!['gains'].toStringAsFixed(2)} €',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const Text(
-                                      "Aujourd'hui",
-                                      style: TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Content
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
-                        ),
                       ),
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: _buildStatCard(
-                                    Icons.inventory_2_outlined,
-                                    'Assignées',
-                                    '${_stats!['assignees']}',
-                                    const Color(0xFF1E5FFF),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildStatCard(
-                                    Icons.check_circle_outline,
-                                    'Complétées',
-                                    '${_stats!['completees']}',
-                                    const Color(0xFF4CAF50),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildStatCard(
-                                    Icons.access_time_rounded,
-                                    'En attente',
-                                    '${_stats!['enAttente']}',
-                                    const Color(0xFFFFA726),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Prochaines livraisons
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'Prochaines livraisons',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${_prochaines.length} en attente',
-                                        style: const TextStyle(
-                                          color: Color(0xFF1E5FFF),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Expanded(
-                                  child: _prochaines.isEmpty
-                                      ? Center(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.inventory_2_outlined,
-                                                size: 60,
-                                                color: Colors.grey[300],
-                                              ),
-                                              const SizedBox(height: 16),
-                                              Text(
-                                                'Aucune livraison en attente',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  color: Colors.grey[500],
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              const Text(
-                                                '⚽ 🏀 🎾',
-                                                style: TextStyle(fontSize: 24),
-                                              ),
-                                            ],
-                                          ),
-                                        )
-                                      : ListView.builder(
-                                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                                          itemCount: _prochaines.length,
-                                          itemBuilder: (context, index) {
-                                            return _buildCommandeCard(_prochaines[index]);
-                                          },
-                                        ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+        ),
       ),
     );
   }
@@ -360,13 +429,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildCommandeCard(Commande commande) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => CommandeDetailPage(commande: commande),
           ),
         );
+        
+        if (result == true) {
+          _loadData();
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -375,12 +448,8 @@ class _DashboardPageState extends State<DashboardPage> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: commande.priorite == Priorite.urgent
-                ? Colors.red
-                : commande.priorite == Priorite.prioritaire
-                    ? Colors.orange
-                    : Colors.grey[200]!,
-            width: commande.priorite != Priorite.normale ? 2 : 1,
+            color: Colors.grey[200]!,
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -411,45 +480,34 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                 ),
                 const Spacer(),
-                if (commande.priorite != Priorite.normale)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: commande.priorite == Priorite.urgent
-                          ? Colors.red
-                          : Colors.orange,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.star, color: Colors.white, size: 12),
-                        const SizedBox(width: 4),
-                        Text(
-                          commande.prioriteLabel,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withOpacity(0.1),
+                    color: commande.statut == StatutCommande.enCours
+                        ? const Color(0xFF1E5FFF).withOpacity(0.1)
+                        : const Color(0xFF4CAF50).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.circle, color: Color(0xFF4CAF50), size: 8),
-                      SizedBox(width: 4),
+                      Icon(
+                        commande.statut == StatutCommande.enCours
+                            ? Icons.local_shipping
+                            : Icons.schedule,
+                        color: commande.statut == StatutCommande.enCours
+                            ? const Color(0xFF1E5FFF)
+                            : const Color(0xFF4CAF50),
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
                       Text(
-                        'En attente',
+                        commande.statut == StatutCommande.enCours
+                            ? 'En cours'
+                            : 'En attente',
                         style: TextStyle(
-                          color: Color(0xFF4CAF50),
+                          color: commande.statut == StatutCommande.enCours
+                              ? const Color(0xFF1E5FFF)
+                              : const Color(0xFF4CAF50),
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -518,7 +576,7 @@ class _DashboardPageState extends State<DashboardPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${commande.total.toStringAsFixed(2)} €',
+                  '${commande.total.toStringAsFixed(0)} FCFA',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,

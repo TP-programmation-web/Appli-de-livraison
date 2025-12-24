@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/livreur.dart';
 import '../models/commande.dart';
-import '../services/backend_service.dart';
+import '../services/api_service.dart';
 import 'commande_detail_page.dart';
 
 class CoursesPage extends StatefulWidget {
@@ -15,8 +15,11 @@ class CoursesPage extends StatefulWidget {
 
 class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ApiService _apiService = ApiService();
+  
   List<Commande> _commandes = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -32,12 +35,40 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
   }
 
   Future<void> _loadCommandes() async {
-    setState(() => _isLoading = true);
-    final commandes = await BackendService().getCommandesAssignees(widget.livreur.id);
     setState(() {
-      _commandes = commandes;
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+    
+    try {
+      final commandes = await _apiService.getCommandesAssignees(widget.livreur.id);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _commandes = commandes;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_errorMessage ?? 'Erreur de chargement'),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Réessayer',
+            textColor: Colors.white,
+            onPressed: _loadCommandes,
+          ),
+        ),
+      );
+    }
   }
 
   List<Commande> get _toutes => _commandes;
@@ -60,29 +91,86 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: _loadCommandes,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: const Color(0xFF1E5FFF),
           unselectedLabelColor: Colors.grey,
           indicatorColor: const Color(0xFF1E5FFF),
           labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          tabs: const [
-            Tab(text: 'Toutes'),
-            Tab(text: 'En attente'),
-            Tab(text: 'En cours'),
+          tabs: [
+            Tab(text: 'Toutes (${_toutes.length})'),
+            Tab(text: 'En attente (${_enAttente.length})'),
+            Tab(text: 'En cours (${_enCours.length})'),
           ],
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildCommandesList(_toutes),
-                _buildCommandesList(_enAttente),
-                _buildCommandesList(_enCours),
-              ],
+          : _errorMessage != null
+              ? _buildErrorView()
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildCommandesList(_toutes),
+                    _buildCommandesList(_enAttente),
+                    _buildCommandesList(_enCours),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: Colors.red[300],
             ),
+            const SizedBox(height: 20),
+            const Text(
+              'Erreur de chargement',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage!,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadCommandes,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E5FFF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -141,23 +229,23 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
         statusColor = const Color(0xFFFFA726);
         borderColor = Colors.transparent;
         break;
-      case StatutCommande.urgent:
-        statusColor = Colors.red;
-        borderColor = Colors.red;
-        break;
       default:
         statusColor = Colors.grey;
         borderColor = Colors.transparent;
     }
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => CommandeDetailPage(commande: commande),
           ),
         );
+        
+        if (result == true) {
+          _loadCommandes();
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -180,17 +268,6 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: commande.statut == StatutCommande.enCours
-                    ? const Color(0xFF1E5FFF).withOpacity(0.05)
-                    : commande.priorite == Priorite.urgent
-                        ? Colors.red.withOpacity(0.05)
-                        : null,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
               child: Row(
                 children: [
                   Container(
@@ -209,31 +286,6 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
                     ),
                   ),
                   const Spacer(),
-                  if (commande.priorite != Priorite.normale)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: commande.priorite == Priorite.urgent
-                            ? Colors.red
-                            : Colors.orange,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            commande.prioriteLabel,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (commande.priorite != Priorite.normale) const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
@@ -371,7 +423,7 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${commande.total.toStringAsFixed(2)} €',
+                            '${commande.total.toStringAsFixed(0)} FCFA',
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -381,13 +433,17 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
                         ],
                       ),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
+                        onPressed: () async {
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => CommandeDetailPage(commande: commande),
                             ),
                           );
+                          
+                          if (result == true) {
+                            _loadCommandes();
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E5FFF),

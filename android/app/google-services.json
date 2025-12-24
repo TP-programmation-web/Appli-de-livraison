@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "383236714360",
+    "project_id": "livraison-43533",
+    "storage_bucket": "livraison-43533.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:383236714360:android:20220f16e8af8849cfa28d",
+        "android_client_info": {
+          "package_name": "com.example.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDiuDwmi_8u-EY9Lfm7P6afssvkjeb-i88"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
